@@ -2,10 +2,15 @@
 #include <stdbool.h>
 #include <stdio.h>
 #include <string.h>
-#include <pthread.h>
 #include <unistd.h>
+#include <time.h>
+
+#include <pthread.h>
+#include <semaphore.h>
+#include <fcntl.h>
 
 #define MAX 10
+#define CONSUMER 10
 
 unsigned count = 0;
 
@@ -13,7 +18,7 @@ struct{
     double *data;
     unsigned size;
     unsigned cur;
-    pthread_mutex_t lock;
+    sem_t* sem_addr;
 }typedef buffer;
 
 buffer * buffer_create(){
@@ -30,13 +35,13 @@ buffer * buffer_create(){
 void * produce(){
     
     double *c = malloc(sizeof(double));
+    unsigned n = rand() % 99999999;
 
-    for(int i = 0; i<93200000; i++){
+    for(int i = 0; i<n; i++){
+            double a = 34.123412;
+            double b = 3.22412345;
 
-        double a = 34.123412;
-        double b = 3.22412345;
-
-        *c = a / b * i;
+            *c = a / b * i;
     }
 
     void *obj = c;
@@ -46,12 +51,14 @@ void * produce(){
 
 void * consume(void *obj){
     double *c = obj;
+    
+    unsigned n = rand() % 99999999;
 
-    for(int i = 0; i<2; i++){
-        double a = 34.123412;
-        double b = 3.22412345;
+    for(int i = 0; i<n; i++){
+            double a = 34.123412;
+            double b = 3.22412345;
 
-        *c = a * b * i;
+            *c = a * b * i;
     }    
 }
 
@@ -70,19 +77,16 @@ void * pop(buffer *b){
     return obj;
 }
 
-void * consumer(void *b){
+void * writer(void *b){
     buffer *buf = b;
 
     while(true){
-        pthread_mutex_lock(&buf->lock);
 
         if(buf->cur > 0){
             void *obj = pop(b);  
-            pthread_mutex_unlock(&buf->lock);
             printf("consumer\n");
             consume(obj);
         }else{
-            pthread_mutex_unlock(&buf->lock);
         }
 
     }
@@ -91,26 +95,29 @@ void * consumer(void *b){
 void * producer(void *b){
     buffer *buf = b;
     while(true){
-        pthread_mutex_lock(&buf->lock);
 
         if(buf->cur < buf->size){
             void *obj = produce();
-        printf("producer\n");
-            pthread_mutex_unlock(&buf->lock);
+            printf("producer\n");
             push(obj, b);
         }else{
-            pthread_mutex_unlock(&buf->lock);
         }
 
     }
 }
 
 int main(){
-    printf("Hello world!\n\n");
-    
-    pthread_t consumer_id, producer_id;
 
-    void *b = buffer_create();
+    srand(time(NULL));
+
+    //Alloc memory to the buffer.
+    buffer *b = buffer_create();
+    
+    //Create semaphore
+    b->sem_addr = sem_open("sem", O_CREAT);
+
+    //Steps to create the threads-----.
+    pthread_t consumer_id, producer_id;
     
     pthread_attr_t attr;
     
@@ -119,8 +126,12 @@ int main(){
     pthread_create (&producer_id, &attr, &producer, b);
     pthread_create (&consumer_id, &attr, &consumer, b);
 
+    //---------------------------------
+    
+    //Join threads
     pthread_join (consumer_id, NULL);
     pthread_join (producer_id, NULL);
+
 }
 
 
