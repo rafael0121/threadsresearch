@@ -12,8 +12,10 @@ unsigned count = 0;
 struct buffer{
     double *data;
     unsigned size;
-    unsigned cur;
+    unsigned tail;
+    unsigned head;
     pthread_mutex_t lock;
+    pthread_mutex_t empty;
 };
 
 struct buffer * buffer_create(){
@@ -22,17 +24,45 @@ struct buffer * buffer_create(){
    
     b->data = malloc(sizeof(double) * MAX);
     b->size = MAX;
-    b->cur = 0;
+    b->head = 1;
+    b->tail = 0;
     
     return b;
 }
 
+void * push(void *obj, struct buffer *b)
+{   
+    if ((b->head) % b->size == b->tail){ 
+        printf("NOT push\n");
+        return NULL;
+    }
+    printf("push\n");
+    double *obj_p = obj;
+    void *ret = NULL;
+    b->data[b->head] = *obj_p;
+    ret = &b->data[b->head];
+    b->head = (b->head + 1) % b->size;
+    return ret;
+}
+
+void * pop(struct buffer *b)
+{
+    if ((b->tail + 1) % b->size == b->head){
+        printf("NOT pop\n");
+        return NULL;
+    }
+    printf("pop\n");
+    void *obj;
+    b->tail = (b->tail + 1) % b->size;
+    obj = &b->data[b->tail];
+    return obj;
+}
+
 void * produce()
 {
-    
     double *c = malloc(sizeof(double));
 
-    for (int i = 0; i < 93200000; i++) {
+    for (int i = 0; i < 9200; i++) {
 
         double a = 34.123412;
         double b = 3.22412345;
@@ -40,7 +70,7 @@ void * produce()
         *c = a / b * i;
     }
 
-    void *obj = c;
+    void *obj = &c;
     
     return obj;
 }
@@ -49,67 +79,39 @@ void consume(void *obj)
 {
     double *c = obj;
 
-    for(int i = 0; i < 2; i++){
+    for(int i = 0; i < 9200; i++){
         double a = 34.123412;
-        double b = 3.22412345;
-
+        double b = 34.123412;
         *c = a * b * i;
-    }    
-}
-
-void push(void *obj, struct buffer *b)
-{
-    double *obj_p = obj;
-    b->data[b->cur] = *obj_p;
-    b->cur++;
-}
-
-void * pop(struct buffer *b)
-{
-    void *obj;
-    
-    obj = &b->data[b->cur - 1];
-    b->cur--;
-
-    return obj;
+    }  
 }
 
 void * consumer(void *b)
 {
     struct buffer *buf = b;
-
     while (true) {
         pthread_mutex_lock(&buf->lock);
-
-        if (buf->cur > 0) {
-            void *obj = pop(b);  
-            pthread_mutex_unlock(&buf->lock);
-            printf("consumer\n");
-            consume(obj);
-        } else {
-            pthread_mutex_unlock(&buf->lock);
+        void *obj = pop(buf);
+        pthread_mutex_unlock(&buf->lock);
+        if (obj == NULL) {
+            continue; 
         }
-
+            consume(obj);
     }
 }
 
 void * producer(void *b)
 {
-
     struct buffer *buf = b;
+    void *ret;
 
     while (true) {
-        pthread_mutex_lock(&buf->lock);
-
-        if (buf->cur < buf->size) {
-            void *obj = produce();
-            printf("producer\n");
-            pthread_mutex_unlock(&buf->lock);
-            push(obj, b);
-        } else {
+        void *obj = produce();
+        if(obj != NULL){
+            pthread_mutex_lock(&buf->lock);
+            ret = push(obj, b);
             pthread_mutex_unlock(&buf->lock);
         }
-
     }
 }
 
@@ -120,10 +122,6 @@ int main()
     pthread_t consumer_id, producer_id;
 
     int ret_consumer, ret_producer;
-    void *ret_vet[2];
-
-    ret_vet[0] = &ret_consumer;
-    ret_vet[1] = &ret_producer;
     
     void *b = buffer_create();
     
@@ -133,9 +131,20 @@ int main()
 
     pthread_create (&producer_id, &attr, &producer, b);
     pthread_create (&consumer_id, &attr, &consumer, b);
+    
+    ret_consumer = pthread_join(consumer_id, NULL);
+    
+    if(ret_consumer != 0){
+        printf("\nConsumer thread error\n");
+        return -1;
+    }
 
-    pthread_join (consumer_id, ret_vet[0]);
-    pthread_join (producer_id, ret_vet[1]);
+    ret_producer = pthread_join(producer_id, NULL);
+     
+    if(ret_producer != 0){
+        printf("\nProducer thread error\n");
+        return -1;
+    }
 
     return 0;
 }
