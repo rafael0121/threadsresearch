@@ -17,7 +17,8 @@ struct buffer{
     pthread_mutex_t lock;
 };
 
-struct buffer * buffer_create(){
+struct buffer * buffer_create()
+{
 
     struct buffer *b = malloc(sizeof(struct buffer));
    
