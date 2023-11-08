@@ -7,9 +7,7 @@
 #include <semaphore.h>
 
 #define MAX 10
-#define READERS 1
-
-unsigned count = 0;
+#define READERS 2
 
 struct buffer{
     double *data;
@@ -115,26 +113,41 @@ int main(){
     //Alloc memory to the buffer.
     struct buffer *b = buffer_create();
 
-    //Steps to create the threads-----.
-    pthread_t writer_id, reader_id[READERS];
+    //---------------------------------
     
-    pthread_attr_t attr;
-    
-    pthread_attr_init(&attr);
+    int ret_reader, ret_writer;
+    ret_reader = 0;
+    ret_writer = 0;
 
+    //Steps to create the threads
+    pthread_t writer_id, reader_id[READERS];
+    pthread_attr_t attr;
+    pthread_attr_init(&attr);
     pthread_create (&writer_id, &attr, &writer, b);
 
-    for(int i = 0; i < READERS; i++)
+    for (int i = 0; i < READERS; i++)
         pthread_create (&reader_id[i], &attr, &reader, b);
 
     //---------------------------------
     
     //Join threads
-    for(int i = 0; i < READERS; i++)
-        pthread_join (reader_id[i], NULL);
+    for (int i = 0; i < READERS; i++) {
+        ret_reader = pthread_join (reader_id[i], NULL);
+        
+        if (ret_reader != 0) {
+            printf("\nReader thread error\n");
+            return -1;
+        }
+    }
 
-    pthread_join (writer_id, NULL);
-
+    ret_writer = pthread_join(writer_id, NULL);
+    
+    if (ret_writer != 0) {
+        printf("\nWriter thread error\n");
+        return -1;
+    }
+    
+    return 0;
 }
 
 
