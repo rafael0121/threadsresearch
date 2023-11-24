@@ -71,7 +71,6 @@ void * produce()
 {
     double *c = malloc(sizeof(double));
 
-    for (int i = 0; i < 9200; i++) {
     int count = 2 << (rand() % RAND);
 
     for (int i = 0; i < count; i++) {
@@ -91,7 +90,6 @@ void consume(void *obj)
 {
     double *c = obj;
 
-    for (int i = 0; i < 9200; i++) {
     int count = 2 << (rand() % RAND);
 
     for (int i = 0; i < count; i++) {
@@ -104,10 +102,7 @@ void consume(void *obj)
 void * consumer(void *b)
 {
     struct buffer *buf = b;
-    while (true) {
-        sem_wait(&buf->sem);
-        void *obj = pop(buf);
-        sem_post(&buf->sem);
+
     for (int i = 0; i < 1024; i++) {
         sem_wait(&buf->empty);
         sem_wait(&buf->mutex);
@@ -126,12 +121,6 @@ void * producer(void *b)
     struct buffer *buf = b;
     void *ret;
 
-    while (true) {
-        void *obj = produce();
-        if (obj != NULL) {
-            sem_wait(&buf->sem);
-            ret = push(obj, b);
-            sem_post(&buf->sem);
     for (int i = 0; i < 1024; i++) {
         void *obj = produce();
         if (obj != NULL) {
