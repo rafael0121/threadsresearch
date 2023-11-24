@@ -1,11 +1,13 @@
 #include <stdlib.h>
 #include <stdbool.h>
 #include <stdio.h>
+#include <time.h>
 
 #include <semaphore.h>
 #include <pthread.h>
 
 #define MAX 20000 
+#define RAND 25
 
 struct buffer{
     double *data;
@@ -13,6 +15,9 @@ struct buffer{
     unsigned tail;
     unsigned head;
     sem_t sem;
+    sem_t mutex;
+    sem_t full;
+    sem_t empty;
 };
 
 struct buffer * buffer_create()
@@ -27,6 +32,9 @@ struct buffer * buffer_create()
 
     //init semaphore
     sem_init(&b->sem, 0, 1);
+    sem_init(&b->full, 0, MAX-1);
+    sem_init(&b->empty, 0, 0);
+    sem_init(&b->mutex, 0, 1);
 
     return b;
 }
@@ -64,6 +72,9 @@ void * produce()
     double *c = malloc(sizeof(double));
 
     for (int i = 0; i < 9200; i++) {
+    int count = 2 << (rand() % RAND);
+
+    for (int i = 0; i < count; i++) {
 
         double a = 34.123412;
         double b = 3.22412345;
@@ -81,6 +92,9 @@ void consume(void *obj)
     double *c = obj;
 
     for (int i = 0; i < 9200; i++) {
+    int count = 2 << (rand() % RAND);
+
+    for (int i = 0; i < count; i++) {
         double a = 34.123412;
         double b = 34.123412;
         *c = a * b * i;
@@ -94,6 +108,12 @@ void * consumer(void *b)
         sem_wait(&buf->sem);
         void *obj = pop(buf);
         sem_post(&buf->sem);
+    for (int i = 0; i < 1024; i++) {
+        sem_wait(&buf->empty);
+        sem_wait(&buf->mutex);
+        void *obj = pop(buf);
+        sem_post(&buf->mutex);
+        sem_post(&buf->full);
         if (obj == NULL) {
             continue; 
         }
@@ -112,12 +132,24 @@ void * producer(void *b)
             sem_wait(&buf->sem);
             ret = push(obj, b);
             sem_post(&buf->sem);
+    for (int i = 0; i < 1024; i++) {
+        void *obj = produce();
+        if (obj != NULL) {
+            sem_wait(&buf->full);
+
+            sem_wait(&buf->mutex);
+            ret = push(obj, b);
+            sem_post(&buf->mutex);
+
+            sem_post(&buf->empty);
         }
     }
 }
 
 int main()
 {
+    srand(time(NULL));
+
     printf("Hello world!\n\n");
     
     pthread_t consumer_id, producer_id;
