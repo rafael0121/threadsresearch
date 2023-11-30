@@ -9,17 +9,20 @@
 #define MAX 20000 
 #define RAND 25
 
+/* Buffer Struct */
 struct buffer{
-    double *data;
-    unsigned size;
-    unsigned tail;
+    double *data;  /* buffer */
+    unsigned size; /* buffer size */
+    unsigned tail; 
     unsigned head;
-    sem_t sem;
-    sem_t mutex;
-    sem_t full;
-    sem_t empty;
+    sem_t mutex;   /* Control access in buffer. */
+    sem_t full;    /* Pause producer */
+    sem_t empty;   /* Pause consumer */
 };
 
+/**
+ * Buffer Create
+ */
 struct buffer * buffer_create()
 {
 
@@ -31,7 +34,6 @@ struct buffer * buffer_create()
     b->tail = 0;
 
     //init semaphore
-    sem_init(&b->sem, 0, 1);
     sem_init(&b->full, 0, MAX-1);
     sem_init(&b->empty, 0, 0);
     sem_init(&b->mutex, 0, 1);
@@ -40,33 +42,43 @@ struct buffer * buffer_create()
 }
 
 void * push(void *obj, struct buffer *b)
-{   
-    if ((b->head) % b->size == b->tail) { 
-        printf("NOT push\n");
-        return NULL;
-    }
-    printf("push\n");
-    double *obj_p = obj;
+{    
     void *ret = NULL;
+    double *obj_p = obj;
+
+    sem_wait(&b->full);
+    sem_wait(&b->mutex);
+    printf("push\n");
     b->data[b->head] = *obj_p;
     ret = &b->data[b->head];
     b->head = (b->head + 1) % b->size;
+
+    sem_post(&b->mutex);
+    sem_post(&b->empty);
+
     return ret;
 }
 
 void * pop(struct buffer *b)
-{
-    if ((b->tail + 1) % b->size == b->head) {
-        printf("NOT pop\n");
-        return NULL;
-    }
-    printf("pop\n");
+{    
     void *obj;
+    
+    sem_wait(&b->empty);
+    sem_wait(&b->mutex);
+
+    printf("pop\n");
     b->tail = (b->tail + 1) % b->size;
     obj = &b->data[b->tail];
+
+    sem_post(&b->mutex);
+    sem_post(&b->full);
+
     return obj;
 }
 
+/**
+ * @brief Produce obj
+ */
 void * produce()
 {
     double *c = malloc(sizeof(double));
@@ -86,6 +98,9 @@ void * produce()
     return obj;
 }
 
+/**
+ * @brief Do operations in obj.
+ */
 void consume(void *obj)
 {
     double *c = obj;
@@ -99,16 +114,17 @@ void consume(void *obj)
     }  
 }
 
+/**
+ * @brief Consumer thread.
+ */
 void * consumer(void *b)
-{
+{        
     struct buffer *buf = b;
 
     for (int i = 0; i < 1024; i++) {
-        sem_wait(&buf->empty);
-        sem_wait(&buf->mutex);
+
         void *obj = pop(buf);
-        sem_post(&buf->mutex);
-        sem_post(&buf->full);
+
         if (obj == NULL) {
             continue; 
         }
@@ -116,6 +132,9 @@ void * consumer(void *b)
     }
 }
 
+/**
+ * @brief Producer thread.
+ */
 void * producer(void *b)
 {
     struct buffer *buf = b;
@@ -124,13 +143,7 @@ void * producer(void *b)
     for (int i = 0; i < 1024; i++) {
         void *obj = produce();
         if (obj != NULL) {
-            sem_wait(&buf->full);
-
-            sem_wait(&buf->mutex);
-            ret = push(obj, b);
-            sem_post(&buf->mutex);
-
-            sem_post(&buf->empty);
+           ret = push(obj, b);
         }
     }
 }
@@ -138,22 +151,24 @@ void * producer(void *b)
 int main()
 {
     srand(time(NULL));
-
-    printf("Hello world!\n\n");
     
+    // Threads IDs. 
     pthread_t consumer_id, producer_id;
-
+    
+    // Receiver return threads.
     int ret_consumer, ret_producer;
     
     void *b = buffer_create();
     
+    // Init default thread configurations. 
     pthread_attr_t attr;
-    
     pthread_attr_init(&attr);
-
+    
+    // Create threads.
     pthread_create (&producer_id, &attr, &producer, b);
     pthread_create (&consumer_id, &attr, &consumer, b);
     
+    // Start Consumer thread.
     ret_consumer = pthread_join(consumer_id, NULL);
     
     if (ret_consumer != 0) {
@@ -161,6 +176,7 @@ int main()
         return -1;
     }
 
+    // Start Producer thread.
     ret_producer = pthread_join(producer_id, NULL);
      
     if (ret_producer != 0) {
