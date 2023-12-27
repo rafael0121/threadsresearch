@@ -2,6 +2,7 @@
 #include <stdbool.h>
 #include <stdio.h>
 #include <time.h>
+#include <assert.h>
 
 #include <semaphore.h>
 #include <pthread.h>
@@ -9,13 +10,16 @@
 #define MAX 20000 
 #define RAND 25
 
+extern void lockmutex (int *);
+extern void unlockmutex (int *);
+
 /* Buffer Struct */
 struct buffer{
     double *data;  /* buffer */
     unsigned size; /* buffer size */
     unsigned tail; 
     unsigned head;
-    sem_t mutex;   /* Control access in buffer. */
+    int mutex;   /* Control access in buffer. */
     sem_t full;    /* Pause producer */
     sem_t empty;   /* Pause consumer */
 };
@@ -36,7 +40,9 @@ struct buffer * buffer_create()
     //init semaphore
     sem_init(&b->full, 0, MAX-1);
     sem_init(&b->empty, 0, 0);
-    sem_init(&b->mutex, 0, 1);
+
+    //Init mutex
+    b->mutex = 0;
 
     return b;
 }
@@ -47,13 +53,13 @@ void * push(void *obj, struct buffer *b)
     double *obj_p = obj;
 
     sem_wait(&b->full);
-    sem_wait(&b->mutex);
-    printf("push\n");
+    lockmutex(&b->mutex);
+
     b->data[b->head] = *obj_p;
     ret = &b->data[b->head];
     b->head = (b->head + 1) % b->size;
 
-    sem_post(&b->mutex);
+    unlockmutex(&b->mutex);
     sem_post(&b->empty);
 
     return ret;
@@ -64,13 +70,13 @@ void * pop(struct buffer *b)
     void *obj;
     
     sem_wait(&b->empty);
-    sem_wait(&b->mutex);
+    lockmutex(&b->mutex);
 
     printf("pop\n");
     b->tail = (b->tail + 1) % b->size;
     obj = &b->data[b->tail];
 
-    sem_post(&b->mutex);
+    unlockmutex(&b->mutex);
     sem_post(&b->full);
 
     return obj;
@@ -119,17 +125,16 @@ void consume(void *obj)
  */
 void * consumer(void *b)
 {        
-    struct buffer *buf = b;
-
     for (int i = 0; i < 1024; i++) {
 
-        void *obj = pop(buf);
+        void *obj = pop(b);
 
-        if (obj == NULL) {
-            continue; 
-        }
-            consume(obj);
+        assert(obj != NULL);
+
+        consume(obj);
     }
+
+    return b;
 }
 
 /**
@@ -137,7 +142,6 @@ void * consumer(void *b)
  */
 void * producer(void *b)
 {
-    struct buffer *buf = b;
     void *ret;
 
     for (int i = 0; i < 1024; i++) {
@@ -145,7 +149,11 @@ void * producer(void *b)
         if (obj != NULL) {
            ret = push(obj, b);
         }
+        
+        assert(ret != NULL);
     }
+    
+    return b;
 }
 
 int main()
