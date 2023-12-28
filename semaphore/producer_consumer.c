@@ -55,6 +55,7 @@ void * push(void *obj, struct buffer *b)
     sem_wait(&b->full);
     lockmutex(&b->mutex);
 
+    printf("Push\n");
     b->data[b->head] = *obj_p;
     ret = &b->data[b->head];
     b->head = (b->head + 1) % b->size;

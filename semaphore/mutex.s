@@ -4,7 +4,8 @@
     .type lockmutex, @function
 
 lockmutex:
-    
+    push %eax
+    push %ebx
     mov 0x4(%esp), %eax
     mov $1, %ebx
     xchg (%eax), %ebx
@@ -15,10 +16,14 @@ lockmutex:
     jmp lockmutex
 
 unlockmutex:
+    push %eax
+    push %ebx
     mov 0x4(%esp), %eax
     mov $0x0, %ebx
     xchg (%eax), %ebx
     jmp _ret
 
 _ret:
+    pop %ebx
+    pop %eax
     ret
