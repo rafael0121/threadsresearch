@@ -1,3 +1,5 @@
+.set SCHED, 0x9e
+
 .text
     .global lockmutex
     .global unlockmutex
@@ -8,7 +10,7 @@ lockmutex:
     xchg %ecx, (%eax) 
     cmp $0x0, %ecx
     je _ret
-    mov $0x9e, %eax
+    mov $SCHED, %eax
     int $0x80
     jmp lockmutex
 
