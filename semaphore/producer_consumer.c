@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include <stdbool.h>
 #include <stdio.h>
+#include <stdint.h>
 #include <time.h>
 #include <assert.h>
 
@@ -8,10 +9,15 @@
 #include <pthread.h>
 
 #define MAX 20000 
+#define ITEMS 1024
 #define RAND 25
+#define CLOCK_SEC 1600000000
+
+typedef uint64_t CLOCK;
 
 extern void lockmutex (int *);
 extern void unlockmutex (int *);
+extern void getclock (CLOCK *);
 
 /* Buffer Struct */
 struct buffer{
@@ -126,7 +132,7 @@ void consume(void *obj)
  */
 void * consumer(void *b)
 {        
-    for (int i = 0; i < 1024; i++) {
+    for (int i = 0; i < ITEMS; i++) {
 
         void *obj = pop(b);
 
@@ -145,7 +151,7 @@ void * producer(void *b)
 {
     void *ret;
 
-    for (int i = 0; i < 1024; i++) {
+    for (int i = 0; i < ITEMS; i++) {
         void *obj = produce();
         if (obj != NULL) {
            ret = push(obj, b);
@@ -158,12 +164,18 @@ void * producer(void *b)
 }
 
 int main()
-{
+{   
     srand(time(NULL));
+
+    // Time stamp counter
+    CLOCK t_start = 0;
+    CLOCK t_end = 0;
     
+    getclock(&t_start);
+
     // Threads IDs. 
     pthread_t consumer_id, producer_id;
-    
+
     // Receiver return threads.
     int ret_consumer, ret_producer;
     
@@ -177,6 +189,7 @@ int main()
     pthread_create (&producer_id, &attr, &producer, b);
     pthread_create (&consumer_id, &attr, &consumer, b);
     
+
     // Start Consumer thread.
     ret_consumer = pthread_join(consumer_id, NULL);
     
@@ -192,6 +205,10 @@ int main()
         printf("\nProducer thread error\n");
         return -1;
     }
+
+    getclock(&t_end);
+
+    printf("Tempo de execução = %f", (float)(t_end - t_start) / 1600000000);
 
     return 0;
 }
