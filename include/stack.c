@@ -1,5 +1,22 @@
 #include "stack.h"
 
+// Pthread Mutex
+#if mutex_type == 0
+
+#include <pthread.h>
+
+void lockmutex (pthread_mutex_t *mutex) {
+    pthread_mutex_lock(mutex);
+}
+
+void unlockmutex (pthread_mutex_t *mutex) {
+    pthread_mutex_unlock(mutex);
+}
+
+#endif // end Pthread Mutex
+
+
+
 struct buffer * buffer_create(int size)
 {
     struct buffer *b = malloc(sizeof(struct buffer));
@@ -13,8 +30,15 @@ struct buffer * buffer_create(int size)
     sem_init(&b->full, 0, size-1);
     sem_init(&b->empty, 0, 0);
 
-#if mutex_type == 1
+#if mutex_type == 0
     //Init Mutex
+    b->mutex = malloc(sizeof(pthread_mutex_t));
+
+#endif
+
+#if mutex_type == 1
+    //Init Mymutex
+    b->mutex = malloc(sizeof(int));
     b->mutex = 0;
 
 #endif
@@ -30,7 +54,6 @@ void * push(void *obj, struct buffer *b)
     sem_wait(&b->full);
     lockmutex(b->mutex);
 
-    //printf("push\n");
     b->data[b->head] = *obj_p;
     ret = &b->data[b->head];
     b->head = (b->head + 1) % b->size;
@@ -48,7 +71,6 @@ void * pop(struct buffer *b)
     sem_wait(&b->empty);
     lockmutex(b->mutex);
 
-    //printf("pop\n");
     b->tail = (b->tail + 1) % b->size;
     obj = &b->data[b->tail];
 

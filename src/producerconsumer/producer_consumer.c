@@ -12,7 +12,7 @@
 
 #define ITEMS 1024
 #define RAND 25
-#define CLOCK_SEC 1600000000
+#define CLOCK_SEC 3200000000
 
 typedef uint64_t CLOCK;
 
@@ -110,7 +110,7 @@ int main()
     CLOCK t_start = 0;
     CLOCK t_end = 0;
 
-    int size = 10;
+    int size = 20;
     
     getclock(&t_start);
 

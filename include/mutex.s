@@ -5,9 +5,8 @@
     .global unlockmutex
 
 lockmutex:
-    mov 0x4(%esp), %eax
     movl $0x1, %ecx
-    xchg %ecx, (%eax) 
+    xchg %ecx, 0x4(%esp) 
     cmp $0x0, %ecx
     je _ret
     mov $SCHED, %eax
@@ -15,9 +14,8 @@ lockmutex:
     jmp lockmutex
 
 unlockmutex:
-    mov 0x4(%esp), %eax
     movl $0x0, %ecx
-    xchg %ecx, (%eax)
+    xchg %ecx, 0x4(%esp)
     jmp _ret
 
 _ret:

@@ -10,14 +10,13 @@ export S_LIBSRC = $(wildcard $(INCDIR)/*.s)
 export C_BINSRC = $(wildcard $(SRCDIR)/*.c)
 export S_BINSRC = $(wildcard $(SRCDIR)/*.a)
 
-export O_LIBSRC = $(wildcard $(INCDIR)/*.o)
 
 #Mutex type
-export mutex_type = 1
+mutex_type = 1
 
 # GCC flags
 export CFLAGS = -g -I INCDIR
-export CFLAGS += -Dmutex_type
+export CFLAGS += -Dmutex_type=$(mutex_type)
 export CFLAGS += -std=c99 -m32
 export CFLAGS += -pedantic-errors -Wall -Wextra -Werror
 export CFLAGS += -Wlogical-op -Wredundant-decls -g
@@ -39,4 +38,4 @@ compExec: compLibrary
 clean: 
 	rm -rf $(BINDIR)
 	rm -rf $(LIBDIR)
-	rm -rf $(O_LIBSRC)
+	rm -rf $(INCDIR)/*.o
