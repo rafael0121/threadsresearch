@@ -15,9 +15,17 @@
 
 typedef uint64_t CLOCK;
 
-extern void lockmutex (int *);
-extern void unlockmutex (int *);
 extern void getclock (CLOCK *);
+
+void save_file(float timestamp){
+
+    FILE *file = NULL;
+    file = fopen("mutex_results.csv", "a");
+    assert(file != NULL);
+    
+    fprintf(file, "%f\n", timestamp);
+
+}
 
 /* Buffer Struct */
 struct buffer{
@@ -25,7 +33,7 @@ struct buffer{
     unsigned size; /* buffer size */
     unsigned tail; 
     unsigned head;
-    int mutex;   /* Control access in buffer. */
+    pthread_mutex_t mutex;   /* Control access in buffer. */
     sem_t full;    /* Pause producer */
     sem_t empty;   /* Pause consumer */
 };
@@ -47,9 +55,6 @@ struct buffer * buffer_create()
     sem_init(&b->full, 0, MAX-1);
     sem_init(&b->empty, 0, 0);
 
-    //Init mutex
-    b->mutex = 0;
-
     return b;
 }
 
@@ -59,14 +64,14 @@ void * push(void *obj, struct buffer *b)
     double *obj_p = obj;
 
     sem_wait(&b->full);
-    lockmutex(&b->mutex);
+    pthread_mutex_lock(&b->mutex);
 
-    printf("push\n");
+    //printf("push\n");
     b->data[b->head] = *obj_p;
     ret = &b->data[b->head];
     b->head = (b->head + 1) % b->size;
 
-    unlockmutex(&b->mutex);
+    pthread_mutex_unlock(&b->mutex);
     sem_post(&b->empty);
 
     return ret;
@@ -77,13 +82,13 @@ void * pop(struct buffer *b)
     void *obj;
     
     sem_wait(&b->empty);
-    lockmutex(&b->mutex);
+    pthread_mutex_lock(&b->mutex);
 
-    printf("pop\n");
+    //printf("pop\n");
     b->tail = (b->tail + 1) % b->size;
     obj = &b->data[b->tail];
 
-    unlockmutex(&b->mutex);
+    pthread_mutex_unlock(&b->mutex);
     sem_post(&b->full);
 
     return obj;
@@ -208,7 +213,11 @@ int main()
 
     getclock(&t_end);
 
-    printf("Tempo de execução = %f", (float)(t_end - t_start) / 1600000000);
+    float timestamp = (float)(t_end - t_start) / 1600000000;
+
+    save_file(timestamp);
+
+    printf("Tempo de execução = %f", timestamp);
 
     return 0;
 }
