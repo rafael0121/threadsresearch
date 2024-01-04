@@ -8,7 +8,8 @@
 #include <semaphore.h>
 #include <pthread.h>
 
-#define MAX 20000 
+#include <stack.h>
+
 #define ITEMS 1024
 #define RAND 25
 #define CLOCK_SEC 1600000000
@@ -20,78 +21,11 @@ extern void getclock (CLOCK *);
 void save_file(float timestamp){
 
     FILE *file = NULL;
-    file = fopen("mutex_results.csv", "a");
+    file = fopen("mymutex_results.csv", "a");
     assert(file != NULL);
     
     fprintf(file, "%f\n", timestamp);
 
-}
-
-/* Buffer Struct */
-struct buffer{
-    double *data;  /* buffer */
-    unsigned size; /* buffer size */
-    unsigned tail; 
-    unsigned head;
-    pthread_mutex_t mutex;   /* Control access in buffer. */
-    sem_t full;    /* Pause producer */
-    sem_t empty;   /* Pause consumer */
-};
-
-/**
- * Buffer Create
- */
-struct buffer * buffer_create()
-{
-
-    struct buffer *b = malloc(sizeof(struct buffer));
-   
-    b->data = malloc(sizeof(double) * MAX);
-    b->size = MAX;
-    b->head = 1;
-    b->tail = 0;
-
-    //init semaphore
-    sem_init(&b->full, 0, MAX-1);
-    sem_init(&b->empty, 0, 0);
-
-    return b;
-}
-
-void * push(void *obj, struct buffer *b)
-{    
-    void *ret = NULL;
-    double *obj_p = obj;
-
-    sem_wait(&b->full);
-    pthread_mutex_lock(&b->mutex);
-
-    //printf("push\n");
-    b->data[b->head] = *obj_p;
-    ret = &b->data[b->head];
-    b->head = (b->head + 1) % b->size;
-
-    pthread_mutex_unlock(&b->mutex);
-    sem_post(&b->empty);
-
-    return ret;
-}
-
-void * pop(struct buffer *b)
-{    
-    void *obj;
-    
-    sem_wait(&b->empty);
-    pthread_mutex_lock(&b->mutex);
-
-    //printf("pop\n");
-    b->tail = (b->tail + 1) % b->size;
-    obj = &b->data[b->tail];
-
-    pthread_mutex_unlock(&b->mutex);
-    sem_post(&b->full);
-
-    return obj;
 }
 
 /**
@@ -175,6 +109,8 @@ int main()
     // Time stamp counter
     CLOCK t_start = 0;
     CLOCK t_end = 0;
+
+    int size = 10;
     
     getclock(&t_start);
 
@@ -184,7 +120,7 @@ int main()
     // Receiver return threads.
     int ret_consumer, ret_producer;
     
-    void *b = buffer_create();
+    void *b = buffer_create(size);
     
     // Init default thread configurations. 
     pthread_attr_t attr;
